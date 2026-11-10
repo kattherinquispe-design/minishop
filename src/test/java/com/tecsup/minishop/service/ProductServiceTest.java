@@ -2,43 +2,43 @@ package com.tecsup.minishop.service;
 
 import com.tecsup.minishop.model.Product;
 import com.tecsup.minishop.repository.ProductRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.springframework.stereotype.Service;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.mock;
+import java.util.List;
+import java.util.Optional;
 
-class ProductServiceTest {
+@Service
+public class ProductService {
 
-    private ProductService productService;
+    private final ProductRepository productRepository;
 
-    @BeforeEach
-    void setUp() {
-        ProductRepository repository = mock(ProductRepository.class);
-        productService = new ProductService(repository);
+    public ProductService(ProductRepository productRepository) {
+        this.productRepository = productRepository;
     }
 
-    @Test
-    void save_precioCero_lanzaExcepcion() {
-        // Arrange
-        Product product = Product.builder().name("Mouse").price(0.0).stock(5).build();
-
-        // Act + Assert
-        assertThrows(IllegalArgumentException.class, () -> productService.save(product));
+    public List<Product> findAll() {
+        return productRepository.findAll();
     }
 
-    @Test
-    void save_stockNegativo_lanzaExcepcion() {
-        Product product = Product.builder().name("Mouse").price(50.0).stock(-1).build();
-
-        assertThrows(IllegalArgumentException.class, () -> productService.save(product));
+    public Optional<Product> findById(Long id) {
+        return productRepository.findById(id);
     }
 
-    @Test
-    void save_productoValido_noLanzaExcepcion() {
-        Product product = Product.builder().name("Mouse").price(50.0).stock(5).build();
+    public Product save(Product product) {
+        validarProducto(product);
+        return productRepository.save(product);
+    }
 
-        assertDoesNotThrow(() -> productService.save(product));
+    public void deleteById(Long id) {
+        productRepository.deleteById(id);
+    }
+
+    private void validarProducto(Product product) {
+        if (product.getPrice() <= 0) {
+            throw new IllegalArgumentException("El precio debe ser mayor a cero");
+        }
+        if (product.getStock() < 0) {
+            throw new IllegalArgumentException("El stock no puede ser negativo");
+        }
     }
 }
