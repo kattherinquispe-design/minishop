@@ -1,4 +1,4 @@
-name: MiniShop CI/CD
+name: CI
 
 on:
   push:
@@ -8,64 +8,55 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-test:
+  build:
     name: Build y pruebas
     runs-on: ubuntu-latest
     steps:
-      - name: 1 - Descargar el código
+      - name: 1. Descargar el código
         uses: actions/checkout@v4
 
-      - name: 2 - Configurar Java 17
+      - name: 2. Configurar JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
           cache: maven
 
-      - name: 3 - Compilar
-        run: mvn -B compile
+      - name: 3. Compilar
+        run: mvn -B -DskipTests compile
 
-      - name: 4 - Pruebas unitarias (Surefire)
+      - name: 4. Pruebas unitarias (Surefire)
         run: mvn -B test
 
-      - name: 5 - Pruebas de integración y empaquetado (Failsafe)
-        run: mvn -B verify -DskipUTs=true
+      - name: 5. Pruebas de integración (Failsafe)
+        run: mvn -B failsafe:integration-test failsafe:verify
 
-      - name: 6 - Guardar reportes de pruebas
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: reportes-pruebas
-          path: |
-            target/surefire-reports/
-            target/failsafe-reports/
+      - name: 6. Empaquetar
+        run: mvn -B -DskipTests package
 
-      - name: 7 - Guardar el .jar
+      - name: 7. Guardar el JAR
         uses: actions/upload-artifact@v4
         with:
           name: minishop-jar
           path: target/*.jar
 
-  release:
+  publicar:
     name: Publicar versión
-    needs: build-and-test
+    needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
+      - name: Descargar el JAR
+        uses: actions/download-artifact@v4
         with:
-          distribution: temurin
-          java-version: '17'
-          cache: maven
+          name: minishop-jar
+          path: dist
 
-      - name: Empaquetar el .jar
-        run: mvn -B package -DskipTests
-
-      - name: Crear la Release en GitHub
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" target/*.jar --title "MiniShop $GITHUB_REF_NAME" --generate-notes
+      - name: Crear la Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: MiniShop ${{ github.ref_name }}
+          generate_release_notes: true
+          files: dist/*.jar
